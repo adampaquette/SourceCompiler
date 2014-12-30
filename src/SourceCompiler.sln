@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.22129.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SourceCompiler", "SourceCompiler.csproj", "{6CE6BA24-A332-4E5B-B727-D616B6B90251}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SourceCompiler", "SourceCompiler/SourceCompiler.csproj", "{6CE6BA24-A332-4E5B-B727-D616B6B90251}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
