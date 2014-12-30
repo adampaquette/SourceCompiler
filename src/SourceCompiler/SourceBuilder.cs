@@ -25,6 +25,7 @@ namespace SourceCompiler
         public void LoadCache(string path)
         {
             var formatter = new BinaryFormatter();
+            formatter.Binder = new SerialisationMemoryBinder();
             using (var stream = File.OpenRead(path))
             {
                 _allAssemblies = (HashSet<SourceProject>)formatter.Deserialize(stream);

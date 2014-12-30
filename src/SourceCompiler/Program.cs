@@ -11,10 +11,13 @@ namespace SourceCompiler
 {
     public class Program
     {
-        private static Engine _engine = new Engine();
+        private static Engine _engine;
         private static string _outputLog;
         private static string _errorLog;
         private static string _buildLog;
+        private Verbose _verbose;
+        private int _nbSuccessBuilds;
+        private int _nbFailedBuilds;
 
         [Flags]
         private enum Verbose : int
@@ -26,7 +29,13 @@ namespace SourceCompiler
 
         [STAThread]
         static void Main(string[] args)
-        {          
+        {
+            var prog = new Program();
+            prog.MainCommandLine(args);
+        }
+
+        public void MainCommandLine(string[] args)
+        {
             if (!VerifiyParams(args))
             {
                 PrintHelp();
@@ -38,8 +47,10 @@ namespace SourceCompiler
             string mode = args[1].ToLower();
             string filesPath = Path.GetDirectoryName(cacheFile);
             int defaultVerbose = (int)(Verbose.Console | Verbose.File);
-            Verbose verbose;
 
+            _engine = new Engine();
+            _nbSuccessBuilds = 0;
+            _nbFailedBuilds = 0;
             _outputLog = Path.Combine(filesPath, "output.txt");
             _errorLog = Path.Combine(filesPath, "errors.txt");
             _buildLog = Path.Combine(filesPath, "buildLog.txt");
@@ -62,26 +73,28 @@ namespace SourceCompiler
 
                 if (nbArgs == 5)
                     Int32.TryParse(args[4], out defaultVerbose);
-                verbose = (Verbose)defaultVerbose;
+                _verbose = (Verbose)defaultVerbose;
 
-                AnalyseInputs(inputs, cacheFile, verbose);
+                AnalyseInputs(inputs, cacheFile);
             }
 
             //Build mode
             else if (mode == "-b")
             {
                 string buildPath = null;
-                
+
                 //if not an arg
-                if(nbArgs >= 3 &&  !args[2].StartsWith("-"))
+                if (nbArgs >= 3 && !args[2].StartsWith("-"))
                     buildPath = args[2];
 
                 if (nbArgs == 4)
                     Int32.TryParse(args[3], out defaultVerbose);
-                verbose = (Verbose)defaultVerbose;
+                _verbose = (Verbose)defaultVerbose;
 
-                Build(cacheFile, buildPath, verbose);
+                Build(cacheFile, buildPath);
             }
+
+            _engine.UnregisterAllLoggers();
         }
 
         private static bool VerifiyParams(string[] args)
@@ -102,23 +115,11 @@ namespace SourceCompiler
             //Build mode
             else if (mode == "-b")
             {
-                
+
             }
             else
                 return false;
             return true;
-        }
-
-        private static void StatusChangedToConsole(object sender, StatusChangedEventArgs e)
-        {
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.BackgroundColor = ConsoleColor.DarkBlue;
-
-            Console.WriteLine(e.PartialNameAssembly);
-            Console.WriteLine(String.Format("{0} of {1} projects.", e.CurrentIndex.ToString(), e.MaxIndex.ToString()));
-            Console.WriteLine(e.Status.ToString());
-
-            Console.ResetColor();
         }
 
         private static void PrintHelp()
@@ -140,30 +141,45 @@ namespace SourceCompiler
             "SourceCompiler c:/cache.sc -a c:/Source -v 3" +
             "SourceCompiler C:/cache.sc -a C:/Source/Project.sln" +
             "SourceCompiler C:/cache.sc -b C:/Source/" +
-            "SourceCompiler C:/cache.sc -b -v 1";            
+            "SourceCompiler C:/cache.sc -b -v 1";
 
             Console.WriteLine(helpMsg);
         }
 
-        private static void AnalyseInputs(string[] inputs, string cacheFile, Verbose verbose)
+        private void StatusChanged(object sender, StatusChangedEventArgs e)
+        {
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.BackgroundColor = ConsoleColor.DarkBlue;
+
+            WriteLineOutput(e.PartialNameAssembly);
+            WriteLineOutput(String.Format("{0} of {1} projects.", e.CurrentIndex.ToString(), e.MaxIndex.ToString()));
+            WriteLineOutput(e.Status.ToString());
+
+            if (e.Status == Status.BuildSucced)
+                _nbSuccessBuilds++;
+            else if (e.Status == Status.BuildFailed)
+                _nbFailedBuilds++;
+
+            Console.ResetColor();
+        }
+
+        private void AnalyseInputs(string[] inputs, string cacheFile)
         {
             var sources = new SourceAnalyser(_engine);
             sources.AnalyseOnlyProject = true;
 
-            if ((verbose & Verbose.Console) == Verbose.Console)
+            if ((_verbose & Verbose.Console) == Verbose.Console)
             {
                 Console.WriteLine("Processing : \r\n");
-                sources.StatusChanged += new StatusChangedEventHandler(StatusChangedToConsole);
+                sources.StatusChanged += new StatusChangedEventHandler(StatusChanged);
             }
 
-            if ((verbose & Verbose.File) == Verbose.File)
+            if ((_verbose & Verbose.File) == Verbose.File)
             {
                 sources.Error += (sender, e) =>
                 {
                     using (var sw = File.AppendText(_errorLog))
-                    {
                         sw.WriteLine(e.GetException().ToString());
-                    }
                 };
             }
 
@@ -171,51 +187,55 @@ namespace SourceCompiler
             sources.ApplyBuildsPriority();
             sources.SaveCache(cacheFile);
 
-            if ((verbose & Verbose.File) == Verbose.File)
-            {
-                using (var sw = File.AppendText(_outputLog))
-                {
-                    Console.WriteLine();
-                    sw.WriteLine("Reference Depth : ");
-                    sw.WriteLine(sources.AllAssenblies.GetReferenceDepth());
-                    /*sw.WriteLine("Reference Tree view : ");
-                    sw.WriteLine(sources.AllAssenblies.GetTreeView());*/
-                }
-            }
-
-            if ((verbose & Verbose.Console) == Verbose.Console)
-            {
-                Console.WriteLine();
-                Console.WriteLine("Reference Depth : ");
-                Console.WriteLine(sources.AllAssenblies.GetReferenceDepth());              
-            }
+            WriteLineOutput();
+            WriteLineOutput("Reference Depth : ");
+            WriteLineOutput(sources.AllAssenblies.GetReferenceDepth());
         }
 
-        private static void Build(string cacheFile, string buildPath, Verbose verbose)
+        private void Build(string cacheFile, string buildPath)
         {
-            var builder = CreateBuilder(cacheFile, buildPath, verbose);          
+            var builder = CreateBuilder(cacheFile, buildPath);
             builder.BuildAllProject();
+
+            WriteLineOutput(String.Format("========== Build: {0} succeeded , {1} failed ==========",
+                                          _nbSuccessBuilds.ToString(), _nbFailedBuilds.ToString()));
         }
 
-        private static SourceBuilder CreateBuilder(string cacheFile, string buildPath, Verbose verbose)
+        private SourceBuilder CreateBuilder(string cacheFile, string buildPath)
         {
             _engine.GlobalProperties.SetProperty("Configuration", "Debug");
             _engine.GlobalProperties.SetProperty("Platform", "AnyCPU");
-            
+
             if (!String.IsNullOrEmpty(buildPath))
             {
                 _engine.GlobalProperties.SetProperty("OutDir", buildPath + "/");
                 _engine.GlobalProperties.SetProperty("OutputPath", buildPath);
-                
+
                 if (!Directory.Exists(buildPath))
                     Directory.CreateDirectory(buildPath);
             }
 
             var builder = new SourceBuilder(_engine);
-            builder.StatusChanged += new StatusChangedEventHandler(StatusChangedToConsole);
+            builder.StatusChanged += new StatusChangedEventHandler(StatusChanged);
             builder.LoadCache(cacheFile);
 
             return builder;
+        }
+
+        private void WriteLineOutput()
+        {
+            WriteLineOutput(null);
+        }
+
+        private void WriteLineOutput(string msg)
+        {
+            if ((_verbose & Verbose.Console) == Verbose.Console)
+                using(var sw = new StreamWriter(Console.OpenStandardOutput()))
+                    sw.WriteLine(msg);
+            
+            if ((_verbose & Verbose.File) == Verbose.File)
+                using(var sw = File.AppendText(_errorLog))
+                    sw.WriteLine(msg);
         }
     }
 }

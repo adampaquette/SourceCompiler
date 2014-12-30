@@ -10,8 +10,8 @@ namespace SourceCompiler
     // and a default empty Shutdown() implementation. 
     public sealed class ConsoleLogger : Logger
     {
-        private StreamWriter streamWriter;
-        private int indent;
+        private StreamWriter _streamWriter;
+        private int _indent;
 
         /// <summary> 
         /// Initialize is guaranteed to be called by MSBuild at the start of the build 
@@ -19,10 +19,8 @@ namespace SourceCompiler
         /// </summary> 
         public override void Initialize(IEventSource eventSource)
         {
-            // Open the file 
-            streamWriter = new StreamWriter(Console.OpenStandardOutput());
-            streamWriter.AutoFlush = true;
-            Console.SetOut(streamWriter);
+            _streamWriter = new StreamWriter(Console.OpenStandardOutput());
+            _streamWriter.AutoFlush = true;
 
             // For brevity, we'll only register for certain event types. Loggers can also 
             // register to handle TargetStarted/Finished and other events.
@@ -82,13 +80,13 @@ namespace SourceCompiler
             // ProjectStartedEventArgs adds ProjectFile, TargetNames 
             // Just the regular message string is good enough here, so just display that.
             WriteLine(String.Empty, e);
-            indent++;
+            _indent++;
         }
 
         void eventSource_ProjectFinished(object sender, ProjectFinishedEventArgs e)
         {
             // The regular message string is good enough here too.
-            indent--;
+            _indent--;
             WriteLine(String.Empty, e);
         }
 
@@ -114,11 +112,11 @@ namespace SourceCompiler
         /// </summary> 
         private void WriteLine(string line, BuildEventArgs e)
         {
-            for (int i = indent; i > 0; i--)
+            for (int i = _indent; i > 0; i--)
             {
-                streamWriter.Write("\t");
+                _streamWriter.Write("\t");
             }
-            streamWriter.WriteLine(line + e.Message);
+            _streamWriter.WriteLine(line + e.Message);
         }
 
         /// <summary> 
@@ -127,7 +125,7 @@ namespace SourceCompiler
         /// </summary> 
         public override void Shutdown()
         {
-            streamWriter.Close();
+            _streamWriter.Close();
         }
     }
 }

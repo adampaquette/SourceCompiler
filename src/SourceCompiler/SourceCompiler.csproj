@@ -81,6 +81,7 @@
   <ItemGroup>
     <Compile Include="ConsoleLogger.cs" />
     <Compile Include="FileLogger.cs" />
+    <Compile Include="SerialisationMemoryBinder.cs" />
     <Compile Include="SourceBuilder.cs" />
     <Compile Include="CircularReferenceException.cs" />
     <Compile Include="SourceAnalyserFormatter.cs" />
