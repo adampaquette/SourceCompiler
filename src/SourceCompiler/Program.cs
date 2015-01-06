@@ -262,7 +262,7 @@ namespace SourceCompiler
                     sw.WriteLine(msg);
 
             if ((_verbose & Verbose.File) == Verbose.File)
-                using (var sw = File.AppendText(_errorLog))
+                using (var sw = File.AppendText(_outputLog))
                     sw.WriteLine(msg);
         }
     }
