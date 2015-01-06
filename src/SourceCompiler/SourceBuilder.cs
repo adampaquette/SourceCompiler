@@ -12,6 +12,7 @@ namespace SourceCompiler
         public Engine Engine { get; set; }
         public List<SourceProject> AllAssenblies { get { return _allAssemblies.ToList(); } }
         public event StatusChangedEventHandler StatusChanged;
+        public bool StopBuildingOnFailure { get; set; }
 
         private HashSet<SourceProject> _allAssemblies = new HashSet<SourceProject>();
 
@@ -54,6 +55,9 @@ namespace SourceCompiler
 
                     if (StatusChanged != null)
                         StatusChanged(this, new StatusChangedEventArgs(status, proj.PartialName, i++, nbProjs));
+
+                    if (StopBuildingOnFailure && status == Status.BuildFailed)
+                        return;
                 }
             }
         }

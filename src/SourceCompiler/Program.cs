@@ -66,6 +66,8 @@ namespace SourceCompiler
             var consoleLogger = new ConsoleLogger();
             _engine.RegisterLogger(consoleLogger);
 
+            int idxNextArg;
+
             //Analyse mode
             if (mode == "-a")
             {
@@ -81,20 +83,68 @@ namespace SourceCompiler
             //Build mode
             else if (mode == "-b")
             {
+                idxNextArg = 2;
                 string buildPath = null;
+                bool stopBuildingOnFailure = false;
 
-                //if not an arg
-                if (nbArgs >= 3 && !args[2].StartsWith("-"))
-                    buildPath = args[2];
+                //If first param is not an arg, it's buildPath
+                if (!args[idxNextArg].StartsWith("-"))
+                {
+                    buildPath = args[idxNextArg];
+                    idxNextArg++;
+                }
 
-                if (nbArgs == 4)
-                    Int32.TryParse(args[3], out defaultVerbose);
+                while (nbArgs > idxNextArg)
+                {
+                    switch (args[idxNextArg])
+                    {
+                        case "--StopBuildingOnFailure":
+                            stopBuildingOnFailure = true;
+                            break;
+                        case "-v":
+                            if (nbArgs > idxNextArg + 1)
+                            {
+                                Int32.TryParse(args[idxNextArg + 1], out defaultVerbose);
+                                idxNextArg++;
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                    idxNextArg++;
+                }
+
                 _verbose = (Verbose)defaultVerbose;
 
-                Build(cacheFile, buildPath);
+                Build(cacheFile, buildPath, stopBuildingOnFailure);
             }
 
             _engine.UnregisterAllLoggers();
+        }
+
+        private static void PrintHelp()
+        {
+            string helpMsg =
+            "SourceCompiler alpha 0.01" +
+            "=========================" +
+            "SourceCompiler cacheFile (-a (inputFolder|inputProject|inputSolution)[;...n]) | (-b [buildPath] [--StopBuildingOnFailure]) [-v (value)]" +
+            "    -a    Analyse mode" +
+            "    -b    Build mode" +
+            "        --StopBuildingOnFailure    Stop building on first error" +
+            "    -v    Verbose flag" +
+            "        0    Quiet" +
+            "        1    Console" +
+            "        2    File" +
+            "Help :" +
+            "1 - You first need to analyse projects to set the builds priorities and save the result in a file." +
+            "2 - You can then build the assemblies from the cache file." +
+            "Example :" +
+            "SourceCompiler c:/cache.sc -a c:/Source -v 3" +
+            "SourceCompiler C:/cache.sc -a C:/Source/Project.sln" +
+            "SourceCompiler C:/cache.sc -b C:/Source/" +
+            "SourceCompiler C:/cache.sc -b --StopBuildingOnFailure -v 1";
+
+            Console.WriteLine(helpMsg);
         }
 
         private static bool VerifiyParams(string[] args)
@@ -122,30 +172,6 @@ namespace SourceCompiler
             return true;
         }
 
-        private static void PrintHelp()
-        {
-            string helpMsg =
-            "SourceCompiler alpha 0.01" +
-            "=========================" +
-            "SourceCompiler cacheFile [-a [inputFolder|inputProject|inputSolution][;...n]] | [-b [buildPath]] [-v (value)]" +
-            "    -a    Analyse mode" +
-            "    -b    Build mode" +
-            "    -v    Verbose flag" +
-            "        0    Quiet" +
-            "        1    Console" +
-            "        2    File" +
-            "Help :" +
-            "1 - You first need to analyse projects to set the builds priorities and save the result in a file." +
-            "2 - You can then build the assemblies from the cache file." +
-            "Example :" +
-            "SourceCompiler c:/cache.sc -a c:/Source -v 3" +
-            "SourceCompiler C:/cache.sc -a C:/Source/Project.sln" +
-            "SourceCompiler C:/cache.sc -b C:/Source/" +
-            "SourceCompiler C:/cache.sc -b -v 1";
-
-            Console.WriteLine(helpMsg);
-        }
-
         private void StatusChanged(object sender, StatusChangedEventArgs e)
         {
             Console.ForegroundColor = ConsoleColor.Cyan;
@@ -158,7 +184,7 @@ namespace SourceCompiler
             if (e.Status == Status.BuildSucced)
                 _nbSuccessBuilds++;
             else if (e.Status == Status.BuildFailed)
-                _nbFailedBuilds++;
+                _nbFailedBuilds++;            
 
             Console.ResetColor();
         }
@@ -192,16 +218,24 @@ namespace SourceCompiler
             WriteLineOutput(sources.AllAssenblies.GetReferenceDepth());
         }
 
-        private void Build(string cacheFile, string buildPath)
+        private void Build(string cacheFile, string buildPath, bool stopBuildingOnFailure)
         {
-            var builder = CreateBuilder(cacheFile, buildPath);
+            ConfigureEngine(buildPath);
+
+            var builder = new SourceBuilder(_engine);
+            builder.StatusChanged += new StatusChangedEventHandler(StatusChanged);
+            builder.LoadCache(cacheFile);
+            builder.StopBuildingOnFailure = stopBuildingOnFailure;
             builder.BuildAllProject();
 
-            WriteLineOutput(String.Format("========== Build: {0} succeeded , {1} failed ==========",
-                                          _nbSuccessBuilds.ToString(), _nbFailedBuilds.ToString()));
+            var nbSkippedBuilds = builder.AllAssenblies.Count() - (_nbSuccessBuilds + _nbFailedBuilds);
+
+            WriteLineOutput(String.Format("========== Build: {0} succeeded , {1} failed, {2} skipped ==========",
+                                          _nbSuccessBuilds.ToString(), _nbFailedBuilds.ToString(),
+                                          nbSkippedBuilds.ToString()));
         }
 
-        private SourceBuilder CreateBuilder(string cacheFile, string buildPath)
+        private void ConfigureEngine(string buildPath)
         {
             _engine.GlobalProperties.SetProperty("Configuration", "Debug");
             _engine.GlobalProperties.SetProperty("Platform", "AnyCPU");
@@ -214,12 +248,6 @@ namespace SourceCompiler
                 if (!Directory.Exists(buildPath))
                     Directory.CreateDirectory(buildPath);
             }
-
-            var builder = new SourceBuilder(_engine);
-            builder.StatusChanged += new StatusChangedEventHandler(StatusChanged);
-            builder.LoadCache(cacheFile);
-
-            return builder;
         }
 
         private void WriteLineOutput()
@@ -230,11 +258,11 @@ namespace SourceCompiler
         private void WriteLineOutput(string msg)
         {
             if ((_verbose & Verbose.Console) == Verbose.Console)
-                using(var sw = new StreamWriter(Console.OpenStandardOutput()))
+                using (var sw = new StreamWriter(Console.OpenStandardOutput()))
                     sw.WriteLine(msg);
-            
+
             if ((_verbose & Verbose.File) == Verbose.File)
-                using(var sw = File.AppendText(_errorLog))
+                using (var sw = File.AppendText(_errorLog))
                     sw.WriteLine(msg);
         }
     }
