@@ -64,6 +64,7 @@ REM Param 2 : $(SolutionDir)$(SolutionFileName)
 echo Build started
 %~dp0\SourceCompiler.exe %1\sln.sc -a %2 -v 0
 %~dp0\SourceCompiler.exe %1\sln.sc -b --StopBuildingOnFailure
+del %1\sln.sc
 ```
 
 ##### Build all projects from a folder
