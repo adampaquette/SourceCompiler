@@ -2,6 +2,8 @@
 using System.IO;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
+using System.Text;
+using System.Globalization;
 
 namespace SourceCompiler
 {
@@ -41,7 +43,7 @@ namespace SourceCompiler
             }
 
             // Open the file 
-            _streamWriter = new StreamWriter(logFile);
+            _streamWriter = new StreamWriter(logFile, true, Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage));
 
             // For brevity, we'll only register for certain event types. Loggers can also 
             // register to handle TargetStarted/Finished and other events.

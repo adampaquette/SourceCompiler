@@ -2,6 +2,8 @@
 using System.IO;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
+using System.Text;
+using System.Globalization;
 
 namespace SourceCompiler
 {
@@ -19,17 +21,17 @@ namespace SourceCompiler
         /// </summary> 
         public override void Initialize(IEventSource eventSource)
         {
-            _streamWriter = new StreamWriter(Console.OpenStandardOutput());
+            _streamWriter = new StreamWriter(Console.OpenStandardOutput(), Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage));
             _streamWriter.AutoFlush = true;
 
             // For brevity, we'll only register for certain event types. Loggers can also 
             // register to handle TargetStarted/Finished and other events.
-            eventSource.ProjectStarted += new ProjectStartedEventHandler(eventSource_ProjectStarted);
+            //eventSource.ProjectStarted += new ProjectStartedEventHandler(eventSource_ProjectStarted);
             eventSource.TaskStarted += new TaskStartedEventHandler(eventSource_TaskStarted);
             eventSource.MessageRaised += new BuildMessageEventHandler(eventSource_MessageRaised);
             eventSource.WarningRaised += new BuildWarningEventHandler(eventSource_WarningRaised);
             eventSource.ErrorRaised += new BuildErrorEventHandler(eventSource_ErrorRaised);
-            eventSource.ProjectFinished += new ProjectFinishedEventHandler(eventSource_ProjectFinished);
+            //eventSource.ProjectFinished += new ProjectFinishedEventHandler(eventSource_ProjectFinished);
         }
 
         void eventSource_ErrorRaised(object sender, BuildErrorEventArgs e)
@@ -75,20 +77,20 @@ namespace SourceCompiler
             // To keep this log clean, this logger will ignore these events.
         }
 
-        void eventSource_ProjectStarted(object sender, ProjectStartedEventArgs e)
-        {
-            // ProjectStartedEventArgs adds ProjectFile, TargetNames 
-            // Just the regular message string is good enough here, so just display that.
-            WriteLine(String.Empty, e);
-            _indent++;
-        }
+        //void eventSource_ProjectStarted(object sender, ProjectStartedEventArgs e)
+        //{
+        //    // ProjectStartedEventArgs adds ProjectFile, TargetNames 
+        //    // Just the regular message string is good enough here, so just display that.
+        //    WriteLine(String.Empty, e);
+        //    _indent++;
+        //}
 
-        void eventSource_ProjectFinished(object sender, ProjectFinishedEventArgs e)
-        {
-            // The regular message string is good enough here too.
-            _indent--;
-            WriteLine(String.Empty, e);
-        }
+        //void eventSource_ProjectFinished(object sender, ProjectFinishedEventArgs e)
+        //{
+        //    // The regular message string is good enough here too.
+        //    _indent--;
+        //    WriteLine(String.Empty, e);
+        //}
 
         /// <summary> 
         /// Write a line to the log, adding the SenderName and Message 

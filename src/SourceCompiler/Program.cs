@@ -36,90 +36,97 @@ namespace SourceCompiler
 
         public void MainCommandLine(string[] args)
         {
-            if (!VerifiyParams(args))
+            try
             {
-                PrintHelp();
-                return;
-            }
-
-            int nbArgs = args.Length;
-            string cacheFile = args[0].ToLower();
-            string mode = args[1].ToLower();
-            string filesPath = Path.GetDirectoryName(cacheFile);
-            int defaultVerbose = (int)(Verbose.Console | Verbose.File);
-
-            _engine = new Engine();
-            _nbSuccessBuilds = 0;
-            _nbFailedBuilds = 0;
-            _outputLog = Path.Combine(filesPath, "output.txt");
-            _errorLog = Path.Combine(filesPath, "errors.txt");
-            _buildLog = Path.Combine(filesPath, "buildLog.txt");
-
-            File.Delete(_outputLog);
-            File.Delete(_errorLog);
-            File.Delete(_buildLog);
-
-            var fileLogger = new FileLogger();
-            fileLogger.Parameters = _buildLog;
-            _engine.RegisterLogger(fileLogger);
-
-            var consoleLogger = new ConsoleLogger();
-            _engine.RegisterLogger(consoleLogger);
-
-            int idxNextArg;
-
-            //Analyse mode
-            if (mode == "-a")
-            {
-                string[] inputs = args[2].Split(';');
-
-                if (nbArgs == 5)
-                    Int32.TryParse(args[4], out defaultVerbose);
-                _verbose = (Verbose)defaultVerbose;
-
-                AnalyseInputs(inputs, cacheFile);
-            }
-
-            //Build mode
-            else if (mode == "-b")
-            {
-                idxNextArg = 2;
-                string buildPath = null;
-                bool stopBuildingOnFailure = false;
-
-                //If first param is not an arg, it's buildPath
-                if (!args[idxNextArg].StartsWith("-"))
+                if (!VerifiyParams(args))
                 {
-                    buildPath = args[idxNextArg];
-                    idxNextArg++;
+                    PrintHelp();
+                    return;
                 }
 
-                while (nbArgs > idxNextArg)
+                int nbArgs = args.Length;
+                string cacheFile = args[0].ToLower();
+                string mode = args[1].ToLower();
+                string filesPath = Path.GetDirectoryName(cacheFile);
+                int defaultVerbose = (int)(Verbose.Console | Verbose.File);
+
+                _engine = new Engine();
+                _nbSuccessBuilds = 0;
+                _nbFailedBuilds = 0;
+                _outputLog = Path.Combine(filesPath, "output.txt");
+                _errorLog = Path.Combine(filesPath, "errors.txt");
+                _buildLog = Path.Combine(filesPath, "buildLog.txt");
+
+                File.Delete(_outputLog);
+                File.Delete(_errorLog);
+                File.Delete(_buildLog);
+
+                var fileLogger = new FileLogger();
+                fileLogger.Parameters = _buildLog;
+                _engine.RegisterLogger(fileLogger);
+
+                var consoleLogger = new ConsoleLogger();
+                _engine.RegisterLogger(consoleLogger);
+
+                int idxNextArg;
+
+                //Analyse mode
+                if (mode == "-a")
                 {
-                    switch (args[idxNextArg])
+                    string[] inputs = args[2].Split(';');
+
+                    if (nbArgs == 5)
+                        Int32.TryParse(args[4], out defaultVerbose);
+                    _verbose = (Verbose)defaultVerbose;
+
+                    AnalyseInputs(inputs, cacheFile);
+                }
+
+                //Build mode
+                else if (mode == "-b")
+                {
+                    idxNextArg = 2;
+                    string buildPath = null;
+                    bool stopBuildingOnFailure = false;
+
+                    //If first param is not an arg, it's buildPath
+                    if (nbArgs > idxNextArg && !args[idxNextArg].StartsWith("-"))
                     {
-                        case "--StopBuildingOnFailure":
-                            stopBuildingOnFailure = true;
-                            break;
-                        case "-v":
-                            if (nbArgs > idxNextArg + 1)
-                            {
-                                Int32.TryParse(args[idxNextArg + 1], out defaultVerbose);
-                                idxNextArg++;
-                            }
-                            break;
-                        default:
-                            break;
+                        buildPath = args[idxNextArg];
+                        idxNextArg++;
                     }
-                    idxNextArg++;
+
+                    while (nbArgs > idxNextArg)
+                    {
+                        switch (args[idxNextArg])
+                        {
+                            case "--StopBuildingOnFailure":
+                                stopBuildingOnFailure = true;
+                                break;
+                            case "-v":
+                                if (nbArgs > idxNextArg + 1)
+                                {
+                                    Int32.TryParse(args[idxNextArg + 1], out defaultVerbose);
+                                    idxNextArg++;
+                                }
+                                break;
+                            default:
+                                break;
+                        }
+                        idxNextArg++;
+                    }
+
+                    _verbose = (Verbose)defaultVerbose;
+
+                    Build(cacheFile, buildPath, stopBuildingOnFailure);
                 }
 
-                _verbose = (Verbose)defaultVerbose;
-
-                Build(cacheFile, buildPath, stopBuildingOnFailure);
+                _engine.UnregisterAllLoggers();
             }
-
-            _engine.UnregisterAllLoggers();
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
         }
 
         private static void PrintHelp()
@@ -184,7 +191,7 @@ namespace SourceCompiler
             if (e.Status == Status.BuildSucced)
                 _nbSuccessBuilds++;
             else if (e.Status == Status.BuildFailed)
-                _nbFailedBuilds++;            
+                _nbFailedBuilds++;
 
             Console.ResetColor();
         }
@@ -194,13 +201,13 @@ namespace SourceCompiler
             var sources = new SourceAnalyser(_engine);
             sources.AnalyseOnlyProject = true;
 
-            if ((_verbose & Verbose.Console) == Verbose.Console)
+            if (_verbose.HasFlag(Verbose.Console))
             {
                 Console.WriteLine("Processing : \r\n");
                 sources.StatusChanged += new StatusChangedEventHandler(StatusChanged);
             }
 
-            if ((_verbose & Verbose.File) == Verbose.File)
+            if (_verbose.HasFlag(Verbose.File))
             {
                 sources.Error += (sender, e) =>
                 {
@@ -230,7 +237,7 @@ namespace SourceCompiler
 
             var nbSkippedBuilds = builder.AllAssenblies.Count() - (_nbSuccessBuilds + _nbFailedBuilds);
 
-            WriteLineOutput(String.Format("========== Build: {0} succeeded , {1} failed, {2} skipped ==========",
+            WriteLineOutput(String.Format("========== Build: {0} succeeded, {1} failed, {2} skipped ==========",
                                           _nbSuccessBuilds.ToString(), _nbFailedBuilds.ToString(),
                                           nbSkippedBuilds.ToString()));
         }
@@ -257,11 +264,11 @@ namespace SourceCompiler
 
         private void WriteLineOutput(string msg)
         {
-            if ((_verbose & Verbose.Console) == Verbose.Console)
+            if (_verbose.HasFlag(Verbose.Console))
                 using (var sw = new StreamWriter(Console.OpenStandardOutput()))
                     sw.WriteLine(msg);
 
-            if ((_verbose & Verbose.File) == Verbose.File)
+            if (_verbose.HasFlag(Verbose.File))
                 using (var sw = File.AppendText(_outputLog))
                     sw.WriteLine(msg);
         }

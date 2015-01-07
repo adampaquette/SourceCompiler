@@ -94,7 +94,12 @@ namespace SourceCompiler
                 AppendProjects(Directory.GetFiles(path, "*.csproj", SearchOption.AllDirectories));
             }
             else
-                throw new ArgumentException(path);
+            {
+                if (Path.HasExtension(path))
+                    throw new FileNotFoundException(path);
+                else
+                    throw new DirectoryNotFoundException(path);
+            }
         }
 
         private void AppendSolution(string solutionFile)
