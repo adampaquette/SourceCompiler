@@ -10,15 +10,14 @@ namespace SourceCompiler
     public sealed class SourceBuilder
     {
         public Engine Engine { get; set; }
-        public List<SourceProject> AllAssenblies { get { return _allAssemblies.ToList(); } }
+        public HashSet<SourceProject> AllAssenblies { get; set; }
         public event StatusChangedEventHandler StatusChanged;
         public bool StopBuildingOnFailure { get; set; }
-
-        private HashSet<SourceProject> _allAssemblies = new HashSet<SourceProject>();
 
         public SourceBuilder(Engine engine)
         {
             Engine = engine;
+            AllAssenblies = new HashSet<SourceProject>();
         }
 
         #region Public methods
@@ -29,7 +28,7 @@ namespace SourceCompiler
             formatter.Binder = new SerialisationMemoryBinder();
             using (var stream = File.OpenRead(path))
             {
-                _allAssemblies = (HashSet<SourceProject>)formatter.Deserialize(stream);
+                AllAssenblies = (HashSet<SourceProject>)formatter.Deserialize(stream);
             }
         }
 
@@ -65,9 +64,7 @@ namespace SourceCompiler
         #endregion
 
         #region Private methods
-
        
-        
         #endregion
     }
 }

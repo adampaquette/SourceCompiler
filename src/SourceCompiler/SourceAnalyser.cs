@@ -11,17 +11,16 @@ namespace SourceCompiler
     public sealed class SourceAnalyser
     {
         public Engine Engine { get; set; }
-        public List<SourceProject> AllAssenblies { get { return _allAssemblies.ToList(); } }
+        public HashSet<SourceProject> AllAssenblies { get; set; }
         public bool AnalyseOnlyProject { get; set; }
         public event StatusChangedEventHandler StatusChanged;
         public event ErrorEventHandler Error;
-
-        private HashSet<SourceProject> _allAssemblies = new HashSet<SourceProject>();
 
         public SourceAnalyser(Engine engine)
         {
             Engine = engine;
             AnalyseOnlyProject = true;
+            AllAssenblies = new HashSet<SourceProject>();
         }
 
         #region Public methods
@@ -32,7 +31,7 @@ namespace SourceCompiler
                 AppendInput(input);
 
             //Processing
-            var projs = new List<SourceProject>(_allAssemblies);
+            var projs = new List<SourceProject>(AllAssenblies);
             int i = 1;
             int nbProjs = projs.Count;
 
@@ -47,9 +46,9 @@ namespace SourceCompiler
         public void ApplyBuildsPriority()
         {
             int i = 1;
-            int nbProjs = _allAssemblies.Count;
+            int nbProjs = AllAssenblies.Count;
 
-            foreach (var project in _allAssemblies)
+            foreach (var project in AllAssenblies)
             {
                 if (StatusChanged != null)
                     StatusChanged(this, new StatusChangedEventArgs(Status.ProcessingBuildPriority, project.PartialName, i++, nbProjs));
@@ -62,7 +61,7 @@ namespace SourceCompiler
             var formatter = new BinaryFormatter();
             using (var stream = File.Create(path))
             {
-                formatter.Serialize(stream, _allAssemblies);
+                formatter.Serialize(stream, AllAssenblies);
             }
         }
 
@@ -71,7 +70,7 @@ namespace SourceCompiler
             var formatter = new BinaryFormatter();
             using (var stream = File.OpenRead(path))
             {
-                _allAssemblies = (HashSet<SourceProject>)formatter.Deserialize(stream);
+                AllAssenblies = (HashSet<SourceProject>)formatter.Deserialize(stream);
             }
         }
 
@@ -126,7 +125,7 @@ namespace SourceCompiler
             {
                 project.Load(projectFile);
                 string partialName = GetPartialNameAssembly(project);
-                asmProj = _allAssemblies.Where(a => a.PartialName == partialName).FirstOrDefault();
+                asmProj = AllAssenblies.Where(a => a.PartialName == partialName).FirstOrDefault();
 
                 //Projet non existant
                 if (asmProj == null)
@@ -135,7 +134,7 @@ namespace SourceCompiler
                     asmProj.PartialName = partialName;
                     asmProj.ProjectPath = projectFile;
 
-                    _allAssemblies.Add(asmProj);
+                    AllAssenblies.Add(asmProj);
                     if (analyse)
                         AnalyseProject(asmProj);
                 }
@@ -151,7 +150,7 @@ namespace SourceCompiler
         private SourceProject AnalyseProject(string fullName)
         {
             string partialName = GetPartialNameAssembly(fullName);
-            SourceProject asmProj = _allAssemblies.Where(a => a.PartialName == partialName).FirstOrDefault();
+            SourceProject asmProj = AllAssenblies.Where(a => a.PartialName == partialName).FirstOrDefault();
 
             //Il existe un projet pour cette DLL
             if (asmProj != null)
@@ -166,7 +165,7 @@ namespace SourceCompiler
                     //TODO : Décompiler la DLL au besoin
                     asmProj = new SourceProject();
                     asmProj.PartialName = partialName;
-                    _allAssemblies.Add(asmProj);
+                    AllAssenblies.Add(asmProj);
                 }
             }
             return asmProj;
