@@ -88,6 +88,7 @@ namespace SourceCompiler
                     idxNextArg = 2;
                     string buildPath = null;
                     bool stopBuildingOnFailure = false;
+                    string configuration = null;
 
                     //If first param is not an arg, it's buildPath
                     if (nbArgs > idxNextArg && !args[idxNextArg].StartsWith("-"))
@@ -100,6 +101,13 @@ namespace SourceCompiler
                     {
                         switch (args[idxNextArg])
                         {
+                            case "-Configuration":
+                                if (nbArgs > idxNextArg + 1)
+                                {
+                                    configuration = args[idxNextArg + 1];
+                                    idxNextArg++;
+                                }
+                                break;
                             case "--StopBuildingOnFailure":
                                 stopBuildingOnFailure = true;
                                 break;
@@ -118,7 +126,7 @@ namespace SourceCompiler
 
                     _verbose = (Verbose)defaultVerbose;
 
-                    Build(cacheFile, buildPath, stopBuildingOnFailure);
+                    Build(cacheFile, buildPath, stopBuildingOnFailure, configuration);
                 }
 
                 _engine.UnregisterAllLoggers();
@@ -132,24 +140,25 @@ namespace SourceCompiler
         private static void PrintHelp()
         {
             string helpMsg =
-            "SourceCompiler alpha 0.01" +
-            "=========================" +
-            "SourceCompiler cacheFile (-a (inputFolder|inputProject|inputSolution)[;...n]) | (-b [buildPath] [--StopBuildingOnFailure]) [-v (value)]" +
-            "    -a    Analyse mode" +
-            "    -b    Build mode" +
-            "        --StopBuildingOnFailure    Stop building on first error" +
-            "    -v    Verbose flag" +
-            "        0    Quiet" +
-            "        1    Console" +
-            "        2    File" +
-            "Help :" +
-            "1 - You first need to analyse projects to set the builds priorities and save the result in a file." +
-            "2 - You can then build the assemblies from the cache file." +
-            "Example :" +
-            "SourceCompiler c:/cache.sc -a c:/Source -v 3" +
-            "SourceCompiler C:/cache.sc -a C:/Source/Project.sln" +
-            "SourceCompiler C:/cache.sc -b C:/Source/" +
-            "SourceCompiler C:/cache.sc -b --StopBuildingOnFailure -v 1";
+            "SourceCompiler alpha 0.02\r\n" +
+            "=========================\r\n" +
+            "SourceCompiler cacheFile (-a (inputFolder|inputProject|inputSolution)[;...n]) | (-b [buildPath] [--StopBuildingOnFailure] [-Configuration (Release|Debug)]) [-v (value)]\r\n" +
+            "    -a    Analyse mode\r\n" +
+            "    -b    Build mode\r\n" +
+            "        -Configuration (Release|Debug)\r\n" +
+            "        --StopBuildingOnFailure    Stop building on first error\r\n" +
+            "    -v    Verbose flag\r\n" +
+            "        0    Quiet\r\n" +
+            "        1    Console\r\n" +
+            "        2    File\r\n" +
+            "Help :\r\n" +
+            "1 - You first need to analyse projects to set the builds priorities and save the result in a file.\r\n" +
+            "2 - You can then build the assemblies from the cache file.\r\n" +
+            "Example :\r\n" +
+            "SourceCompiler c:/cache.sc -a c:/Source -v 3\r\n" +
+            "SourceCompiler C:/cache.sc -a C:/Source/Project.sln\r\n" +
+            "SourceCompiler C:/cache.sc -b C:/Source/\r\n" +
+            "SourceCompiler C:/cache.sc -b --StopBuildingOnFailure -v 1\r\n";
 
             Console.WriteLine(helpMsg);
         }
@@ -225,9 +234,9 @@ namespace SourceCompiler
             WriteLineOutput(sources.AllAssenblies.GetReferenceDepth());
         }
 
-        private void Build(string cacheFile, string buildPath, bool stopBuildingOnFailure)
+        private void Build(string cacheFile, string buildPath, bool stopBuildingOnFailure, string configuration)
         {
-            ConfigureEngine(buildPath);
+            ConfigureEngine(buildPath, configuration);
 
             var builder = new SourceBuilder(_engine);
             builder.StatusChanged += new StatusChangedEventHandler(StatusChanged);
@@ -242,9 +251,9 @@ namespace SourceCompiler
                                           nbSkippedBuilds.ToString()));
         }
 
-        private void ConfigureEngine(string buildPath)
+        private void ConfigureEngine(string buildPath, string configuration)
         {
-            _engine.GlobalProperties.SetProperty("Configuration", "Debug");
+            _engine.GlobalProperties.SetProperty("Configuration", configuration);
             _engine.GlobalProperties.SetProperty("Platform", "AnyCPU");
 
             if (!String.IsNullOrEmpty(buildPath))
