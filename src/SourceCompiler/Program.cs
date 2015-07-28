@@ -53,9 +53,23 @@ namespace SourceCompiler
                 _engine = new Engine();
                 _nbSuccessBuilds = 0;
                 _nbFailedBuilds = 0;
-                _outputLog = Path.Combine(filesPath, "output.txt");
-                _errorLog = Path.Combine(filesPath, "errors.txt");
-                _buildLog = Path.Combine(filesPath, "buildLog.txt");
+
+                if (mode == "-a")
+                {
+                    _outputLog = "SC_Analyse_";
+                    _errorLog = "SC_Analyse_";
+                    _buildLog = "SC_Analyse_";
+                }
+                else
+                {
+                    _outputLog = "SC_Build_";
+                    _errorLog = "SC_Build_";
+                    _buildLog = "SC_Build_";
+                }
+
+                _outputLog = Path.Combine(filesPath, _outputLog + "Output.txt");
+                _errorLog = Path.Combine(filesPath, _errorLog + "Errors.txt");
+                _buildLog = Path.Combine(filesPath, _buildLog + "Log.txt");
 
                 File.Delete(_outputLog);
                 File.Delete(_errorLog);
@@ -124,6 +138,7 @@ namespace SourceCompiler
                         idxNextArg++;
                     }
 
+                    if (configuration == null) configuration = "debug";
                     _verbose = (Verbose)defaultVerbose;
 
                     Build(cacheFile, buildPath, stopBuildingOnFailure, configuration);
